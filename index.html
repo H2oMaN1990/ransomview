@@ -3,188 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ransomware Live: Recent Victims</title>
+    <title>Ransomlook API Data</title>
     <style>
-        /* General Styling */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #e9ebee;
-            color: #333;
-        }
-        header {
-            text-align: center;
-            padding-bottom: 20px;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
         }
         h1 {
-            color: #b33939; /* Dark Red */
-        }
-        #api-url-link {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        /* Data Container Styling */
-        #data-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        /* Individual Victim Card Styling */
-        .victim-card {
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            border-left: 5px solid #b33939; /* Red accent */
-            padding: 15px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s;
-        }
-        .victim-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .victim-card h2 {
-            margin-top: 0;
             color: #333;
-            font-size: 1.5em;
         }
-
-        .details-grid {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 5px 10px;
-            font-size: 0.95em;
+        pre {
+            background-color: #eee;
+            border: 1px solid #ccc;
+            padding: 15px;
+            overflow-x: auto; /* Allows horizontal scrolling for long data */
+            white-space: pre-wrap; /* Wraps text within the box */
         }
-        .details-grid strong {
-            color: #b33939; /* Red for labels */
+        .loading {
+            color: #555;
+            font-style: italic;
         }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Recent Ransomware Victims</h1>
-        <p>Data fetched from: <a id="api-url-link" target="_blank" href="https://api.ransomware.live/v2/recentvictims">https://api.ransomware.live/v2/recentvictims</a></p>
-    </header>
-
-    <main id="data-container">
-        <p style="text-align: center;">Loading data...</p>
-    </main>
+    <h1>Data from Ransomlook API</h1>
+    
+    <pre id="api-data" class="loading">Loading data...</pre>
 
     <script>
-        // --- Configuration ---
-        const API_ENDPOINT = 'https://api.ransomware.live/v2/recentvictims'; 
-        const container = document.getElementById('data-container');
-        const urlDisplay = document.getElementById('api-url-link');
+        // The API endpoint you want to call
+        const API_URL = 'https://www.ransomlook.io/api/last';
         
-        urlDisplay.textContent = API_ENDPOINT;
-
         /**
-         * Converts an ISO date string to a human-readable format.
+         * Function to fetch data from the API and display it on the page.
          */
-        function formatDate(isoDate) {
+        async function fetchData() {
+            const dataElement = document.getElementById('api-data');
+            
             try {
-                if (!isoDate) return 'N/A';
-                // Remove the extra timestamp and only use the date portion
-                const dateOnly = isoDate.split(' ')[0]; 
-                return new Date(dateOnly).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
+                // 1. Make the API request using the Fetch API (similar to your curl command)
+                const response = await fetch(API_URL, {
+                    method: 'GET', // curl -X 'GET'
+                    headers: {
+                        'Accept': 'application/json' // -H 'accept: application/json'
+                    }
                 });
-            } catch (e) {
-                return isoDate;
-            }
-        }
 
-        /**
-         * Fetches data from the API and displays it on the page.
-         */
-        async function fetchAndDisplayData() {
-            container.innerHTML = '<p style="text-align: center;">Loading data...</p>';
-
-            try {
-                const response = await fetch(API_ENDPOINT, {
-                    method: 'GET',
-                    mode: 'cors',
-                    headers: { 'Accept': 'application/json' }
-                });
-                
+                // Check if the request was successful
                 if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+
+                // 2. Parse the JSON response body
                 const data = await response.json();
-                
-                container.innerHTML = ''; // Clear loading message
-                
-                renderData(data);
+
+                // 3. Format the JSON data nicely for display
+                const prettyJson = JSON.stringify(data, null, 4); // null, 4 is for indentation
+
+                // 4. Update the HTML element with the formatted data
+                dataElement.textContent = prettyJson;
+                dataElement.classList.remove('loading');
 
             } catch (error) {
-                console.error('Error fetching/rendering data:', error);
-                container.innerHTML = `<div class="victim-card" style="border-left: 5px solid red;">
-                    <h2>⚠️ Failed to Load Data</h2>
-                    <p>Could not fetch data from the API endpoint.</p>
-                    <p>Details: <strong>${error.message}</strong></p>
-                    <p>This may still be a CORS issue from the API server side, or a parsing error. Please check the Developer Console (F12).</p>
-                </div>`;
+                // Handle any errors during the fetch or parsing process
+                console.error('Fetch error:', error);
+                dataElement.textContent = 'Error fetching data: ' + error.message;
+                dataElement.classList.remove('loading');
             }
         }
 
-        /**
-         * Renders the fetched array of victims into the container.
-         * NOW using the correct property names: 'victim', 'group', 'attackdate'.
-         */
-        function renderData(victims) {
-            if (!Array.isArray(victims) || victims.length === 0) {
-                container.innerHTML = '<p style="text-align: center;">No victim data found in the response or invalid data structure.</p>';
-                return;
-            }
-
-            // Limit to the first 20 or so items for cleaner display
-            const displayVictims = victims.slice(0, 20); 
-
-            displayVictims.forEach(victim => {
-                // *** CORRECTED PROPERTY NAMES ARE HERE ***
-                const name = victim.victim || 'Name Unknown';
-                const group = victim.group || 'Group Unknown';
-                const date = formatDate(victim.attackdate);
-                const description = victim.description && victim.description !== 'N/A' ? victim.description : 'No description available.';
-                const domain = victim.domain || 'N/A';
-                const activity = victim.activity || 'N/A';
-                const claimUrl = victim.claim_url || '#';
-
-                const victimCardHTML = `
-                    <div class="victim-card">
-                        <h2>${name}</h2>
-                        <div class="details-grid">
-                            <strong>Ransom Group:</strong> <span>${group}</span>
-                            <strong>Date of Attack:</strong> <span>${date}</span>
-                            <strong>Domain:</strong> <span><a href="http://${domain}" target="_blank">${domain}</a></span>
-                            <strong>Activity:</strong> <span>${activity}</span>
-                        </div>
-                        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
-                        <p>${description}</p>
-                        <p style="margin-top: 10px;"><a href="${claimUrl}" target="_blank">View Claim Link (Caution: May be an Onion Link)</a></p>
-                    </div>
-                `;
-                
-                container.innerHTML += victimCardHTML;
-            });
-            
-            if (victims.length > 20) {
-                container.innerHTML += `<p style="text-align: center; margin-top: 20px;">Displaying ${displayVictims.length} of ${victims.length} total victims.</p>`;
-            }
-        }
-
-        // Start the process when the page loads
-        fetchAndDisplayData();
+        // Call the function to start fetching the data when the page loads
+        fetchData();
     </script>
 
 </body>
