@@ -79,25 +79,27 @@
 
     <script>
         // --- Configuration ---
-        // Your specific API endpoint
         const API_ENDPOINT = 'https://api.ransomware.live/v2/recentvictims'; 
         const container = document.getElementById('data-container');
+        const urlDisplay = document.getElementById('api-url-link');
+        
+        urlDisplay.textContent = API_ENDPOINT;
 
         /**
          * Converts an ISO date string to a human-readable format.
-         * @param {string} isoDate The date string (e.g., "2024-01-01T00:00:00.000Z")
-         * @returns {string} Formatted date (e.g., "January 1, 2024")
          */
         function formatDate(isoDate) {
             try {
                 if (!isoDate) return 'N/A';
-                return new Date(isoDate).toLocaleDateString('en-US', {
+                // Remove the extra timestamp and only use the date portion
+                const dateOnly = isoDate.split(' ')[0]; 
+                return new Date(dateOnly).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
                 });
             } catch (e) {
-                return isoDate; // return raw data on error
+                return isoDate;
             }
         }
 
@@ -105,8 +107,14 @@
          * Fetches data from the API and displays it on the page.
          */
         async function fetchAndDisplayData() {
+            container.innerHTML = '<p style="text-align: center;">Loading data...</p>';
+
             try {
-                const response = await fetch(API_ENDPOINT);
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: { 'Accept': 'application/json' }
+                });
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
@@ -119,52 +127,60 @@
                 renderData(data);
 
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error fetching/rendering data:', error);
                 container.innerHTML = `<div class="victim-card" style="border-left: 5px solid red;">
                     <h2>⚠️ Failed to Load Data</h2>
                     <p>Could not fetch data from the API endpoint.</p>
-                    <p>Details: ${error.message}</p>
-                    <p>Please check the console (F12) for more information or try refreshing the page.</p>
+                    <p>Details: <strong>${error.message}</strong></p>
+                    <p>This may still be a CORS issue from the API server side, or a parsing error. Please check the Developer Console (F12).</p>
                 </div>`;
             }
         }
 
         /**
          * Renders the fetched array of victims into the container.
-         * Note: This assumes the API returns an array of objects with properties like 
-         * 'victim_name', 'group_name', and 'date_of_publication'. 
-         * You may need to adjust the property names below if your API structure is different.
-         * * @param {Array<Object>} victims The JSON data from the API.
+         * NOW using the correct property names: 'victim', 'group', 'attackdate'.
          */
         function renderData(victims) {
             if (!Array.isArray(victims) || victims.length === 0) {
-                container.innerHTML = '<p style="text-align: center;">No victim data found in the response.</p>';
+                container.innerHTML = '<p style="text-align: center;">No victim data found in the response or invalid data structure.</p>';
                 return;
             }
 
-            victims.forEach(victim => {
-                // Get data, defaulting to 'N/A' if the property is missing
-                const name = victim.victim_name || 'Name Unknown';
-                const group = victim.group_name || 'Group Unknown';
-                const date = formatDate(victim.date_of_publication);
-                const description = victim.description || 'No description available.';
-                const website = victim.website || '#'; // Assuming there might be a website link
+            // Limit to the first 20 or so items for cleaner display
+            const displayVictims = victims.slice(0, 20); 
+
+            displayVictims.forEach(victim => {
+                // *** CORRECTED PROPERTY NAMES ARE HERE ***
+                const name = victim.victim || 'Name Unknown';
+                const group = victim.group || 'Group Unknown';
+                const date = formatDate(victim.attackdate);
+                const description = victim.description && victim.description !== 'N/A' ? victim.description : 'No description available.';
+                const domain = victim.domain || 'N/A';
+                const activity = victim.activity || 'N/A';
+                const claimUrl = victim.claim_url || '#';
 
                 const victimCardHTML = `
                     <div class="victim-card">
                         <h2>${name}</h2>
                         <div class="details-grid">
                             <strong>Ransom Group:</strong> <span>${group}</span>
-                            <strong>Date Published:</strong> <span>${date}</span>
-                            <strong>Website:</strong> <span><a href="${website}" target="_blank">${website}</a></span>
+                            <strong>Date of Attack:</strong> <span>${date}</span>
+                            <strong>Domain:</strong> <span><a href="http://${domain}" target="_blank">${domain}</a></span>
+                            <strong>Activity:</strong> <span>${activity}</span>
                         </div>
                         <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
                         <p>${description}</p>
+                        <p style="margin-top: 10px;"><a href="${claimUrl}" target="_blank">View Claim Link (Caution: May be an Onion Link)</a></p>
                     </div>
                 `;
                 
                 container.innerHTML += victimCardHTML;
             });
+            
+            if (victims.length > 20) {
+                container.innerHTML += `<p style="text-align: center; margin-top: 20px;">Displaying ${displayVictims.length} of ${victims.length} total victims.</p>`;
+            }
         }
 
         // Start the process when the page loads
