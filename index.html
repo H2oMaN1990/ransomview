@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ransomware Live: Recent Victims</title>
+    <style>
+        /* General Styling */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #e9ebee;
+            color: #333;
+        }
+        header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        h1 {
+            color: #b33939; /* Dark Red */
+        }
+        #api-url-link {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* Data Container Styling */
+        #data-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* Individual Victim Card Styling */
+        .victim-card {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-left: 5px solid #b33939; /* Red accent */
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+        .victim-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .victim-card h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 5px 10px;
+            font-size: 0.95em;
+        }
+        .details-grid strong {
+            color: #b33939; /* Red for labels */
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Recent Ransomware Victims</h1>
+        <p>Data fetched from: <a id="api-url-link" target="_blank" href="https://api.ransomware.live/v2/recentvictims">https://api.ransomware.live/v2/recentvictims</a></p>
+    </header>
+
+    <main id="data-container">
+        <p style="text-align: center;">Loading data...</p>
+    </main>
+
+    <script>
+        // --- Configuration ---
+        // Your specific API endpoint
+        const API_ENDPOINT = 'https://api.ransomware.live/v2/recentvictims'; 
+        const container = document.getElementById('data-container');
+
+        /**
+         * Converts an ISO date string to a human-readable format.
+         * @param {string} isoDate The date string (e.g., "2024-01-01T00:00:00.000Z")
+         * @returns {string} Formatted date (e.g., "January 1, 2024")
+         */
+        function formatDate(isoDate) {
+            try {
+                if (!isoDate) return 'N/A';
+                return new Date(isoDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                return isoDate; // return raw data on error
+            }
+        }
+
+        /**
+         * Fetches data from the API and displays it on the page.
+         */
+        async function fetchAndDisplayData() {
+            try {
+                const response = await fetch(API_ENDPOINT);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                container.innerHTML = ''; // Clear loading message
+                
+                renderData(data);
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                container.innerHTML = `<div class="victim-card" style="border-left: 5px solid red;">
+                    <h2>⚠️ Failed to Load Data</h2>
+                    <p>Could not fetch data from the API endpoint.</p>
+                    <p>Details: ${error.message}</p>
+                    <p>Please check the console (F12) for more information or try refreshing the page.</p>
+                </div>`;
+            }
+        }
+
+        /**
+         * Renders the fetched array of victims into the container.
+         * Note: This assumes the API returns an array of objects with properties like 
+         * 'victim_name', 'group_name', and 'date_of_publication'. 
+         * You may need to adjust the property names below if your API structure is different.
+         * * @param {Array<Object>} victims The JSON data from the API.
+         */
+        function renderData(victims) {
+            if (!Array.isArray(victims) || victims.length === 0) {
+                container.innerHTML = '<p style="text-align: center;">No victim data found in the response.</p>';
+                return;
+            }
+
+            victims.forEach(victim => {
+                // Get data, defaulting to 'N/A' if the property is missing
+                const name = victim.victim_name || 'Name Unknown';
+                const group = victim.group_name || 'Group Unknown';
+                const date = formatDate(victim.date_of_publication);
+                const description = victim.description || 'No description available.';
+                const website = victim.website || '#'; // Assuming there might be a website link
+
+                const victimCardHTML = `
+                    <div class="victim-card">
+                        <h2>${name}</h2>
+                        <div class="details-grid">
+                            <strong>Ransom Group:</strong> <span>${group}</span>
+                            <strong>Date Published:</strong> <span>${date}</span>
+                            <strong>Website:</strong> <span><a href="${website}" target="_blank">${website}</a></span>
+                        </div>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+                        <p>${description}</p>
+                    </div>
+                `;
+                
+                container.innerHTML += victimCardHTML;
+            });
+        }
+
+        // Start the process when the page loads
+        fetchAndDisplayData();
+    </script>
+
+</body>
+</html>
